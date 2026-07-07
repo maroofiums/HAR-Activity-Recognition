@@ -75,13 +75,13 @@ The network utilizes a hybrid **CNN-LSTM** topology where temporal-spatial featu
 
 ```mermaid
 graph TD
-    A[Input: Batch, 128, 9] --> B[Conv1D Blocks]
-    B -->|Feature Extraction & Downsampling| C[Temporal Sequence: Batch, 32, Channels]
-    C --> D[Bidirectional LSTM: 2 Layers, 128 Hidden]
+    A["Input (Batch, 128, 9)"] --> B[Conv1D Blocks]
+    B -->|Feature Extraction & Downsampling| C["Temporal Sequence (Batch, 32, Channels)"]
+    C --> D["Bidirectional LSTM (2 Layers, 128 Hidden)"]
     D --> E[Mean Pooling Over Time]
-    E --> F[Linear Layer: 256 → 64]
+    E --> F["Linear Layer (256 -> 64)"]
     F --> G[ReLU Activation & Dropout]
-    G --> H[Output Linear Layer: 64 → 6 Classes]
+    G --> H["Output Linear Layer (64 -> 6 Classes)"]
 
 ```
 
