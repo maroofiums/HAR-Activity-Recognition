@@ -1,98 +1,168 @@
-# Human Activity Recognition — CNN-LSTM
+# Human Activity Recognition using CNN-LSTM
 
-Human Activity Recognition (HAR) from raw smartphone accelerometer and
-gyroscope signals, using a CNN-LSTM hybrid model in PyTorch, with
-experiment tracking via MLflow.
+An end-to-end deep learning pipeline for **Human Activity Recognition (HAR)** using raw smartphone accelerometer and gyroscope signals. This repository implements a hybrid **CNN-LSTM** architecture in PyTorch, complete with structured data loading, subject-wise validation splitting, and experiment tracking via MLflow.
 
-## Dataset
+---
 
-UCI HAR Dataset — 30 subjects, 6 activities (WALKING, WALKING_UPSTAIRS,
-WALKING_DOWNSTAIRS, SITTING, STANDING, LAYING), 2.56-second windows
-(128 timesteps at 50Hz), 9 raw signal channels per window:
+## Dataset Overview
 
-- body_acc_x, body_acc_y, body_acc_z
-- body_gyro_x, body_gyro_y, body_gyro_z
-- total_acc_x, total_acc_y, total_acc_z
+This project utilizes the **UCI HAR Dataset**, which captures 30 subjects performing 6 distinct activities while wearing a smartphone on their waist:
 
-Download from: https://archive.ics.uci.edu/dataset/240/human+activity+recognition+using+smartphones
+* `WALKING`
+* `WALKING_UPSTAIRS`
+* `WALKING_DOWNSTAIRS`
+* `SITTING`
+* `STANDING`
+* `LAYING`
 
-Extract into `data/raw/` so the path
-`data/raw/UCI HAR Dataset/train/Inertial Signals/` exists.
+### Signal Specifications
+
+* **Sampling Rate:** 50Hz (128 timesteps over a 2.56-second sliding window)
+* **Channels (9 Total):**
+* Body Acceleration ($x, y, z$)
+* Angular Velocity / Gyroscope ($x, y, z$)
+* Total Acceleration ($x, y, z$)
+
+
+
+> **Data Setup:** Download the dataset from the [UCI Machine Learning Repository](https://archive.ics.uci.edu/dataset/240/human+activity+recognition+using+smartphones). Extract it into your repository root so that the paths match: `data/raw/UCI HAR Dataset/`.
+
+---
 
 ## Project Structure
 
-```
+```text
 har-activity-recognition/
 ├── data/
-│   ├── raw/                     # UCI HAR raw download goes here
-│   └── data_loader.py           # Dataset class + loading/normalization
+│   ├── raw/                     # UCI HAR raw download
+│   ├── processed/               # normalized, windowed tensors (.npy or .pt)
+│   └── data_loader.py           # Dataset class + DataLoader builders
+│
 ├── models/
-│   ├── cnn_lstm.py              # CNN-LSTM architecture
-│   └── checkpoints/             # saved model weights (created at train time)
+│   ├── cnn_lstm.py               # main architecture
+│   ├── baseline_lstm.py          # pure LSTM baseline for comparison
+│   └── checkpoints/              # saved .pt weights
+│
 ├── training/
-│   ├── train.py                 # training loop with early stopping
-│   └── config.yaml              # hyperparameters
-├── requirements.txt
-└── README.md
+│   ├── train.py                  # training loop, early stopping
+│   ├── config.yaml                # hyperparameters (lr, batch size, epochs)
+│   └── evaluate.py                # confusion matrix, per-class F1
+│
+├── serving/
+│   ├── main.py                    # FastAPI app
+│   ├── schemas.py                 # Pydantic request/response models
+│   ├── inference.py               # load model, run prediction
+│   └── requirements.txt
+│
+├── notebooks/
+│   └── eda_and_experiments.ipynb  # exploratory analysis, ablations
+│
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+│
+├── mlruns/                        # MLflow tracking (you're already learning this)
+├── README.md
+└── requirements.txt
+
 ```
 
-## Architecture
+---
+
+## Model Architecture
+
+The network utilizes a hybrid **CNN-LSTM** topology where temporal-spatial features are first extracted via 1D Convolutional blocks before processing long-range dependencies through a Bidirectional LSTM network.
+
+```mermaid
+graph TD
+    A[Input: Batch, 128, 9] --> B[Conv1D Blocks]
+    B -->|Feature Extraction & Downsampling| C[Temporal Sequence: Batch, 32, Channels]
+    C --> D[Bidirectional LSTM: 2 Layers, 128 Hidden]
+    D --> E[Mean Pooling Over Time]
+    E --> F[Linear Layer: 256 → 64]
+    F --> G[ReLU Activation & Dropout]
+    G --> H[Output Linear Layer: 64 → 6 Classes]
 
 ```
-Input (batch, 128, 9)
-    -> Conv1D blocks (feature extraction, downsampling 128 -> 32 timesteps)
-    -> Bidirectional LSTM (2 layers, hidden size 128)
-    -> Mean-pool over time
-    -> Linear(256 -> 64) -> ReLU -> Dropout -> Linear(64 -> 6)
-```
 
-## Setup
+---
+
+## Installation & Setup
+
+Ensure you have Python 3.8+ installed. Clone the repository and install the required dependencies:
 
 ```bash
+# Clone the repository
+git clone https://github.com/maroofiums/HAR-Activity-Recognition.git
+cd har-activity-recognition
+
+# Install dependencies
 pip install -r requirements.txt
+
 ```
 
-## Usage
+---
 
-**1. Sanity-check the data pipeline:**
+## Execution Pipeline
+
+Follow these steps sequentially to verify your environment and train the network.
+
+### 1. Verify the Data Pipeline
+
+Run the data loader independently to verify that data files are correctly read, parsed, and normalized.
 
 ```bash
 python data/data_loader.py
+
 ```
 
-**2. Sanity-check the model forward pass:**
+### 2. Verify the Model Pass
+
+Run the model script to perform a dry-run/sanity-check using a dummy tensor tensor to verify shapes across layer transitions.
 
 ```bash
 python models/cnn_lstm.py
+
 ```
 
-**3. Train:**
+### 3. Start Training
+
+Launch the training routine. Hyperparameters will be pulled from `training/config.yaml`.
 
 ```bash
 python training/train.py
+
 ```
 
-**4. View MLflow experiment dashboard:**
+### 4. Monitor with MLflow
+
+All training metrics, loss curves, and artifact checkpoints are automatically tracked. Open the dashboard locally:
 
 ```bash
 mlflow ui
+
 ```
 
-Then open `http://localhost:5000`.
+Once started, navigate to **`http://localhost:5000`** in your web browser.
 
-## Notes
+---
 
-- Train/validation split is done by **subject ID**, not randomly, to
-  prevent windows from the same subject leaking across splits.
-- Normalization statistics (mean/std per channel) are computed from the
-  training set only and applied to both train and test.
-- Class weights are computed from the training subset to guard against
-  any class imbalance.
-- Best model checkpoint (lowest validation loss) is saved to
-  `models/checkpoints/cnn_lstm_best.pt`.
+## Key Design Considerations
+
+* **Zero-Leakage Splitting:** The Train/Validation split is partitioned **strictly by Subject ID** rather than random sampling. This ensures that overlapping sliding windows from the same individual never leak across splits, mimicking realistic deployment scenarios.
+* **Robust Normalization:** Multi-channel mean and standard deviation statistics are computed **exclusively** on the training subset and applied downstream to validation and testing paths to prevent lookahead bias.
+* **Imbalance Handling:** Training sample distributions are computed dynamically to generate inverse class weights, guarding the loss function against any potential class-frequency skew.
+* **Early Stopping:** The execution engine monitors validation loss every epoch, capturing the optimal weights directly to `models/checkpoints/cnn_lstm_best.pt`.
+
+---
 
 ## Expected Results
 
-A well-trained CNN-LSTM on UCI HAR typically reaches **90-94% test
-accuracy**. The most common confusion pairs are SITTING vs STANDING and
-WALKING_UPSTAIRS vs WALKING_DOWNSTAIRS.
+A standard deployment of this configuration on the UCI HAR dataset yields an expected **Test Accuracy of 90%–94%**.
+
+### Empirical Insights
+
+When inspecting your generated confusion matrix on MLflow, note that the majority of classification errors congregate within identical spatial profiles:
+
+* **Static States:** *SITTING* vs. *STANDING*
+* **Dynamic States:** *WALKING_UPSTAIRS* vs. *WALKING_DOWNSTAIRS*
