@@ -94,7 +94,7 @@ Ensure you have Python 3.8+ installed. Clone the repository and install the requ
 ```bash
 # Clone the repository
 git clone https://github.com/maroofiums/HAR-Activity-Recognition.git
-cd har-activity-recognition
+cd HAR-Activity-Recognition
 
 # Install dependencies
 pip install -r requirements.txt
