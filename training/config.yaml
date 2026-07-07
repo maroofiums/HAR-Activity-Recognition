@@ -1,0 +1,16 @@
+raw_root: "data/raw/UCI HAR Dataset"
+
+seed: 42
+val_fraction: 0.15
+
+batch_size: 64
+max_epochs: 50
+learning_rate: 0.001
+weight_decay: 0.0001
+
+lstm_hidden_size: 128
+lstm_num_layers: 2
+dropout: 0.3
+
+early_stopping_patience: 7
+checkpoint_dir: "models/checkpoints"

@@ -1,3 +1,16 @@
+"""
+data_loader.py
+
+Loads the UCI HAR raw Inertial Signals dataset and prepares it as a
+PyTorch Dataset for the CNN-LSTM activity recognition model.
+
+Directory expected (relative to project root):
+    data/raw/UCI HAR Dataset/train/Inertial Signals/*.txt
+    data/raw/UCI HAR Dataset/train/y_train.txt
+    data/raw/UCI HAR Dataset/test/Inertial Signals/*.txt
+    data/raw/UCI HAR Dataset/test/y_test.txt
+"""
+
 import os
 import numpy as np
 import torch
@@ -18,6 +31,15 @@ SIGNAL_NAMES = [
 ]
 
 NUM_CLASSES = 6
+
+ACTIVITY_LABELS = {
+    0: "WALKING",
+    1: "WALKING_UPSTAIRS",
+    2: "WALKING_DOWNSTAIRS",
+    3: "SITTING",
+    4: "STANDING",
+    5: "LAYING",
+}
 
 
 def _load_signal_file(filepath: str) -> np.ndarray:
@@ -66,7 +88,6 @@ def compute_normalization_stats(X_train: np.ndarray) -> tuple[np.ndarray, np.nda
         mean: shape (9,)
         std:  shape (9,)
     """
-    # Reduce over N (samples) and T (timesteps), keep channel dim
     mean = X_train.mean(axis=(0, 1))
     std = X_train.std(axis=(0, 1))
     std = np.where(std < 1e-8, 1e-8, std)  # guard against divide-by-zero
@@ -126,7 +147,6 @@ def build_datasets(raw_root: str) -> tuple[HARDataset, HARDataset, dict]:
 
 
 if __name__ == "__main__":
-    # Quick sanity check when running this file directly
     RAW_ROOT = os.path.join("data", "raw", "UCI HAR Dataset")
 
     train_ds, test_ds, stats = build_datasets(RAW_ROOT)
@@ -135,8 +155,8 @@ if __name__ == "__main__":
     print(f"Test samples:  {len(test_ds)}")
 
     x_sample, y_sample = train_ds[0]
-    print(f"Sample X shape: {x_sample.shape}")   # expected: torch.Size([128, 9])
-    print(f"Sample y value: {y_sample.item()}")  # expected: int in [0, 5]
+    print(f"Sample X shape: {x_sample.shape}")
+    print(f"Sample y value: {y_sample.item()}")
 
     print(f"Per-channel mean: {stats['mean']}")
     print(f"Per-channel std:  {stats['std']}")

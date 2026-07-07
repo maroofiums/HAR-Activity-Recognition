@@ -1,3 +1,12 @@
+"""
+cnn_lstm.py
+
+CNN-LSTM hybrid architecture for Human Activity Recognition.
+
+Input:  (batch, 128, 9)   -- (time, channels), as returned by HARDataset
+Output: (batch, 6)        -- class logits (raw, pre-softmax)
+"""
+
 import torch
 import torch.nn as nn
 
@@ -56,7 +65,6 @@ class CNNLSTM(nn.Module):
     ):
         super().__init__()
 
-        # --- Convolutional feature extractor ---
         self.conv_stack = nn.Sequential(
             ConvBlock(in_channels, 64, kernel_size=5, pool=False),
             ConvBlock(64, 64, kernel_size=5, pool=True),    # T: 128 -> 64
@@ -64,7 +72,6 @@ class CNNLSTM(nn.Module):
             ConvBlock(128, 128, kernel_size=5, pool=True),  # T: 64 -> 32
         )
 
-        # --- Temporal modeling ---
         self.lstm = nn.LSTM(
             input_size=128,
             hidden_size=lstm_hidden_size,
@@ -76,7 +83,6 @@ class CNNLSTM(nn.Module):
 
         lstm_output_dim = lstm_hidden_size * 2  # bidirectional -> concat both directions
 
-        # --- Classification head ---
         self.classifier = nn.Sequential(
             nn.Linear(lstm_output_dim, 64),
             nn.ReLU(),
@@ -88,16 +94,13 @@ class CNNLSTM(nn.Module):
         """
         x shape: (batch, time=128, channels=9)
         """
-        # Conv1d expects (batch, channels, time)
         x = x.permute(0, 2, 1)          # (batch, 9, 128)
         x = self.conv_stack(x)          # (batch, 128, 32)
 
-        # LSTM expects (batch, time, features)
         x = x.permute(0, 2, 1)          # (batch, 32, 128)
 
         lstm_out, (h_n, c_n) = self.lstm(x)   # lstm_out: (batch, 32, 256)
 
-        # Mean-pool over the time dimension instead of using only h_n
         pooled = lstm_out.mean(dim=1)   # (batch, 256)
 
         logits = self.classifier(pooled)  # (batch, num_classes)
@@ -105,7 +108,6 @@ class CNNLSTM(nn.Module):
 
 
 if __name__ == "__main__":
-    # Sanity check: forward pass with a dummy batch
     model = CNNLSTM(in_channels=9, num_classes=6)
 
     dummy_batch = torch.randn(32, 128, 9)  # (batch=32, time=128, channels=9)
